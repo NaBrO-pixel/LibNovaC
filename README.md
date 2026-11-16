@@ -37,7 +37,9 @@ Version 0.2.
   `errno`.
 - `src/arch/x86_64/` - `_start`, the `syscall` instruction, and the syscall
   numbers, which `make check-sysnum` compares with the kernel's
-  `include/syscall64.h`.
+  `include/syscall64.h`: the enclosing NovarisOS tree's copy when built as
+  `userland/libnovac`, otherwise the vendored one in `third_party/novaris/`
+  (override with `NOVARIS_INC=/path/to/NovarisOS/include`).
 - `tests/host/` - unit tests of the portable core, run on the host under
   ASan and UBSan with symbols renamed so they cannot clash with the host
   libc.
@@ -50,7 +52,7 @@ Version 0.2.
 make host-test      # portable-core unit tests on the host
 make lib            # build/target/libNovaC.a and crt0.o
 make target-test    # the target test, run on this (Linux x86-64) host
-make check-sysnum   # syscall numbers against ../../include/syscall64.h
+make check-sysnum   # syscall numbers against NovarisOS's syscall64.h
 make example        # compile-check examples/demo.c
 ```
 

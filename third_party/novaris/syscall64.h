@@ -1,0 +1,495 @@
+#ifndef SYSCALL64_H
+#define SYSCALL64_H
+
+#include <stdint.h>
+
+/* Ring 3, and the syscall instruction that gets back out of it.
+ *
+ * `int 0x80` is not how a 64-bit kernel is entered. SYSCALL/SYSRET are a
+ * pair of instructions with no descriptor lookup and no stack switch at
+ * all - which is the part that has to be handled by hand: SYSCALL leaves
+ * the user's rsp loaded, so the entry stub is running on a ring-3 stack
+ * until it moves off it.
+ *
+ * The selectors come out of three MSRs rather than the IDT, and they are
+ * computed from one base by fixed offsets, which is why gdt64.h orders
+ * the user pair data-before-code:
+ *
+ *   SYSCALL:  CS = STAR[47:32],      SS = STAR[47:32] + 8
+ *   SYSRET :  CS = STAR[63:48] + 16, SS = STAR[63:48] + 8   (both RPL 3)
+ *
+ * With STAR[47:32] = 0x08 that gives kernel 0x08/0x10, and with
+ * STAR[63:48] = 0x10 it gives user 0x23/0x1B. */
+
+/* Linux's x86-64 numbers, not Novaris's own and not the i386 ones.
+ *
+ * This is the point where Milestone 44's item 4 starts being paid for.
+ * The 32-bit kernel implements Linux's *i386* ABI - `write` is 4 there
+ * and 1 here, `exit` is 1 there and 60 here, the arguments arrive in
+ * different registers, and the structures they point at are laid out
+ * differently. Every one of those has to be re-earned, and using the
+ * real numbers from the start is how the rest of it gets earned against
+ * something real rather than against a private convention. */
+#define SYS64_READ            0
+#define SYS64_WRITE           1
+#define SYS64_OPEN            2
+#define SYS64_CLOSE           3
+#define SYS64_LSEEK           8
+#define SYS64_MKDIR           83
+#define SYS64_RMDIR           84
+#define SYS64_GETDENTS64      217
+#define SYS64_UNLINK          87
+#define SYS64_STAT            4
+#define SYS64_PREAD64         17
+#define SYS64_PWRITE64        18
+#define SYS64_ACCESS          21
+/* wait4's options. WNOHANG is the only one this kernel can act on;
+ * the other two ask about stopped and continued children and there is
+ * no job control here to produce either. */
+#define WAIT64_NOHANG         1
+#define WAIT64_UNTRACED       2
+#define WAIT64_CONTINUED      8
+
+#define SYS64_KILL            62
+#define SYS64_TKILL           200
+#define SYS64_TGKILL          234
+#define SYS64_SCHED_YIELD      24
+#define SYS64_UNAME            63
+#define SYS64_GETRUSAGE        98
+#define SYS64_SETPRIORITY     141
+#define SYS64_SYSINFO          99
+#define SYS64_SETXATTR        188
+#define SYS64_LSETXATTR       189
+#define SYS64_FSETXATTR       190
+#define SYS64_REMOVEXATTR     197
+#define SYS64_LREMOVEXATTR    198
+#define SYS64_FREMOVEXATTR    199
+#define SYS64_SCHED_SETAFFINITY 203
+#define SYS64_SCHED_GETAFFINITY 204
+#define SYS64_PRLIMIT64       302
+#define SYS64_STATFS          137
+#define SYS64_FSTATFS         138
+#define SYS64_GETXATTR        191
+#define SYS64_LGETXATTR       192
+#define SYS64_FGETXATTR       193
+#define SYS64_FACCESSAT       269
+#define SYS64_UTIMENSAT       280
+#define SYS64_FACCESSAT2      439
+#define SYS64_NEWFSTATAT      262
+#define SYS64_OPENAT          257
+
+/* The working directory, and the links a Wine prefix is held together
+ * with (Milestone 68). */
+#define SYS64_LSTAT           6
+#define SYS64_GETCWD          79
+#define SYS64_CHDIR           80
+#define SYS64_FCHDIR          81
+#define SYS64_SYMLINK         88
+#define SYS64_MKDIRAT         258
+#define SYS64_UNLINKAT        263
+#define SYS64_SYMLINKAT       266
+#define SYS64_READLINKAT      267
+
+/* The "relative to the working directory" dirfd, and the flag that asks
+ * a stat not to follow a final symlink. */
+#define AT_FDCWD_             (-100)
+#define AT_SYMLINK_NOFOLLOW_  0x100
+#define AT_REMOVEDIR_         0x200
+
+/* open(2) flags, Linux's values for x86-64. */
+#define O_WRONLY   0x0001
+#define O_RDWR     0x0002
+#define O_CREAT    0x0040
+#define O_TRUNC    0x0200
+#define O_APPEND   0x0400
+#define O_NONBLOCK 0x0800
+#define O_CLOEXEC  0x80000
+
+/* The descriptor layer (Milestone 74). pipe2 and socketpair take the
+ * same two flags, in the same bits, which is why they are up here rather
+ * than beside either one. */
+#define SYS64_PIPE2      293
+#define SYS64_SOCKETPAIR 53
+#define SYS64_FCNTL      72
+#define SYS64_DUP        32
+#define SYS64_DUP2       33
+#define SYS64_DUP3       292
+#define SYS64_POLL       7
+
+/* The listening socket (Milestone 75). */
+#define SYS64_SOCKET      41
+#define SYS64_CONNECT     42
+#define SYS64_ACCEPT      43
+#define SYS64_SENDTO      44
+#define SYS64_RECVFROM    45
+#define SYS64_SHUTDOWN    48
+#define SYS64_GETPEERNAME 52
+#define SYS64_SENDMMSG    307
+#define SYS64_BIND        49
+#define SYS64_LISTEN      50
+#define SYS64_GETSOCKNAME 51
+#define SYS64_SETSOCKOPT  54
+#define SYS64_GETSOCKOPT  55
+#define SYS64_ACCEPT4     288
+#define SYS64_SENDMSG     46
+#define SYS64_RECVMSG     47
+
+/* sendmsg/recvmsg, and the control data that carries descriptors.
+ * The layouts are Linux's for x86-64 and the offsets are load-bearing:
+ * this is the structure Wine's server protocol is written against. */
+typedef struct { void* iov_base; uint64_t iov_len; } iovec64_t;
+
+typedef struct {
+    void*      msg_name;
+    uint32_t   msg_namelen;
+    uint32_t   _pad1;
+    iovec64_t* msg_iov;
+    uint64_t   msg_iovlen;
+    void*      msg_control;
+    uint64_t   msg_controllen;
+    int32_t    msg_flags;
+    uint32_t   _pad2;
+} msghdr64_t;
+
+typedef struct {
+    uint64_t cmsg_len;
+    int32_t  cmsg_level;
+    int32_t  cmsg_type;
+} cmsghdr64_t;
+
+/* Control data is padded to a pointer, and the padding is part of the
+ * layout rather than an implementation detail - CMSG_NXTHDR steps by it. */
+#define CMSG64_ALIGN(n) (((n) + 7ull) & ~7ull)
+
+#define SOL_SOCKET_        1
+#define SCM_RIGHTS_        1
+#define MSG_CTRUNC_        0x08
+#define MSG_CMSG_CLOEXEC_  0x40000000
+#define SYS64_CHMOD       90
+#define SYS64_FCHMOD      91
+#define SYS64_SETSID      112
+#define SYS64_UMASK       95
+#define SYS64_RENAME      82
+#define SYS64_RENAMEAT    264
+#define SYS64_FTRUNCATE   77
+#define SYS64_TRUNCATE    76
+
+/* Time. The epoch is when the timer started, not 1970 - see clock64.h. */
+#define SYS64_GETTIMEOFDAY   96
+#define SYS64_NANOSLEEP      35
+#define SYS64_CLOCK_GETTIME  228
+#define SYS64_CLOCK_GETRES   229
+#define SYS64_CLOCK_NANOSLEEP 230
+
+/* time(2). Normally answered by the vDSO, so a program on Linux rarely
+ * makes the call at all - there is no vDSO here, so glibc falls through
+ * to the syscall and every one of them was being refused. The
+ * wineserver asks once a second, to rebuild the timezone bias it
+ * publishes in user_shared_data, and a -ENOSYS there is not an error it
+ * checks: it is a negative time_t handed to gmtime. */
+#define SYS64_TIME            201
+#define SYS64_SIGALTSTACK     131
+
+/* poll(2) events, Linux's values. Only these three mean anything here. */
+#define POLL64_IN    0x001
+#define POLL64_OUT   0x004
+#define POLL64_HUP   0x010
+#define POLL64_NVAL  0x020
+
+/* socket(2) domains and types, Linux's values. */
+#define AF_UNIX_        1
+#define SOCK_STREAM_    1
+
+/* sockaddr_un, which is the only address family here. The path is
+ * NUL-terminated inside a fixed 108-byte field; the length the caller
+ * passes covers the family and however much of the path it used. */
+typedef struct {
+    uint16_t sun_family;
+    char     sun_path[108];
+} sockaddr_un64_t;
+
+/* fcntl(2) commands, Linux's values. */
+#define F_DUPFD          0
+#define F_GETFD          1
+#define F_SETFD          2
+#define F_GETFL          3
+#define F_SETFL          4
+#define F_SETLK          6
+#define F_SETLKW         7
+#define F_GETLK          5
+#define F_DUPFD_CLOEXEC  1030
+#define FD_CLOEXEC       1
+
+/* mmap(2) protection and flags, Linux's values. */
+#define PROT_READ      0x1
+#define PROT_WRITE     0x2
+#define PROT_EXEC      0x4
+#define MAP_SHARED     0x01
+#define MAP_PRIVATE    0x02
+#define MAP_FIXED      0x10
+#define MAP_ANONYMOUS  0x20
+/* "Exactly here, but only if it is free." Linux fails these with EEXIST
+ * rather than replacing what is already mapped, and the flag implies
+ * fixed placement on its own - it does not come with MAP_FIXED. Wine
+ * reserves its address space with it and relies on the refusal: see
+ * uspace64_mmap. */
+#define MAP_FIXED_NOREPLACE 0x100000
+
+/* lseek(2) whence */
+#define SEEK_SET_  0
+#define SEEK_CUR_  1
+#define SEEK_END_  2
+#define SYS64_FSTAT           5
+#define SYS64_MMAP            9
+#define SYS64_MPROTECT        10
+#define SYS64_MUNMAP          11
+#define SYS64_BRK             12
+#define SYS64_RT_SIGACTION    13
+#define SYS64_RT_SIGPROCMASK  14
+#define SYS64_RT_SIGRETURN    15
+#define SYS64_RT_SIGPENDING   127
+#define SYS64_RT_SIGTIMEDWAIT 128
+#define SYS64_FSYNC           74
+#define SYS64_FDATASYNC       75
+#define SYS64_TIMES           100
+#define SYS64_PROCESS_VM_READV  310
+#define SYS64_PROCESS_VM_WRITEV 311
+#define SYS64_GETCPU          309
+#define SYS64_MADVISE         28
+#define SYS64_MSYNC           26
+#define SYS64_RT_SIGSUSPEND   130
+#define SYS64_PSELECT6        270
+#define SYS64_SIGNALFD        282
+#define SYS64_SIGNALFD4       289
+#define SYS64_PPOLL           271
+#define SYS64_IOCTL           16
+#define SYS64_WRITEV          20
+#define SYS64_READV           19
+#define SYS64_UNAME           63
+#define SYS64_READLINK        89
+#define SYS64_FORK            57
+#define SYS64_EXECVE          59
+#define SYS64_WAIT4           61
+#define SYS64_GETPID          39
+#define SYS64_GETPPID         110
+#define SYS64_GETUID          102
+#define SYS64_GETGID          104
+#define SYS64_GETEUID         107
+#define SYS64_GETEGID         108
+#define SYS64_CLONE           56
+#define SYS64_GETTID          186
+#define SYS64_PRCTL           157
+#define SYS64_ARCH_PRCTL      158
+
+/* The prctl options this kernel answers. Everything else is EINVAL,
+ * which is what Linux says about an option it does not know - including
+ * PR_SET_PTRACER, the Yama one Wine asks for, which a kernel without
+ * Yama refuses in exactly the same way. Measured on the host. */
+#define PRCTL64_SET_NAME      15
+#define PRCTL64_GET_NAME      16
+#define PRCTL64_COMM_LEN      16
+#define SYS64_FUTEX           202
+#define SYS64_SET_TID_ADDRESS 218
+#define SYS64_EXIT_GROUP      231
+#define SYS64_SET_ROBUST_LIST 273
+#define SYS64_PRLIMIT64       302
+#define SYS64_GETRANDOM       318
+#define SYS64_RSEQ            334
+#define SYS64_EXIT            60
+
+/* futex(2) operations, Linux's values. FUTEX_PRIVATE_FLAG is masked off
+ * rather than acted on: it lets Linux skip a global hash lookup, which
+ * is an optimisation rather than a semantic, and with no shared memory
+ * here private and shared behave identically. */
+#define FUTEX_WAIT          0
+#define FUTEX_WAKE          1
+#define FUTEX_PRIVATE_FLAG  128
+#define FUTEX_WAIT_BITSET   9
+#define FUTEX_WAKE_BITSET   10
+#define FUTEX_CLOCK_REALTIME 256
+
+/* clone() flag bits, Linux's values. Only these are acted on. */
+#define CLONE_VM      0x00000100
+#define CLONE_VFORK   0x00004000
+#define CLONE_THREAD  0x00010000
+#define CLONE_SETTLS  0x00080000
+#define CLONE_PARENT_SETTID  0x00100000
+#define CLONE_CHILD_CLEARTID 0x00200000
+#define CLONE_CHILD_SETTID   0x01000000
+
+/* One Novaris-private number, well above anything Linux uses, kept for
+ * the bring-up test that has no way to print. */
+#define SYS64_ECHO  0x1000   /* returns its argument + 0x1111 */
+
+/* One syscall's arguments, in the order the entry stub pushes them.
+ *
+ * Passed by pointer rather than as seven parameters because Linux's sixth
+ * argument lives in r9 and SysV's sixth parameter does too - but the
+ * *number* has to go somewhere as well, so a register-for-register
+ * mapping runs out. A struct on the syscall stack costs one `mov` and
+ * makes the whole set addressable. */
+/* Exactly the frame syscall64_entry builds, 128 bytes of it, in address
+ * order. The callee-saved half and the two saved-return fields are there
+ * for `clone`, which has to hand a new thread a complete register set
+ * and cannot invent one from registers it cannot see. */
+typedef struct syscall64_args {
+    uint64_t nr;                          /* rax                       */
+    uint64_t a1, a2, a3, a4, a5, a6;      /* rdi, rsi, rdx, r10, r8, r9 */
+    uint64_t rbx, rbp, r12, r13, r14, r15;
+    uint64_t _pad;                        /* keeps the call 16-aligned */
+    uint64_t ret_rflags;                  /* r11, as SYSCALL left it   */
+    uint64_t ret_rip;                     /* rcx, likewise             */
+} syscall64_args_t;
+
+/* Sets EFER.SCE, STAR, LSTAR and FMASK. Call after gdt64_install(). */
+void syscall64_init(void);
+
+/* Enters ring 3 at user_rip with user_rsp and `arg` in rdi, and returns
+ * here when the program makes a SYS64_EXIT call - whichever program that
+ * turns out to be, once a scheduler is rotating between several.
+ * Implemented in syscall64.s. */
+extern void enter_user_mode64(uint64_t user_rip, uint64_t user_rsp,
+                              uint64_t arg);
+
+/* The ring-3 test program, as bytes to be copied into a user page. It is
+ * position independent - immediates and `syscall`, no absolute
+ * addressing - so it runs wherever it is mapped. */
+extern uint8_t user_test_code[];
+extern uint8_t user_test_code_end[];
+
+/* The scheduler's test program: increments the counter whose address it
+ * is given, forever. It is stopped by resuming it at task_count_exit
+ * rather than by anything it does itself. */
+extern uint8_t task_count_code[];
+extern uint8_t task_count_exit[];
+extern uint8_t task_count_code_end[];
+
+/* What the dispatcher saw. */
+uint64_t syscall64_count(void);
+
+/* Per-process and per-syscall accounting, reset at the start of a layer
+ * and reported at the end. It answers the question a global count
+ * cannot: whether a program that ran out of time was doing the work or
+ * being starved by something else that was. */
+void     syscall64_reset_calls(void);
+void     syscall64_report_calls(void);
+
+/* For every thread parked on a pipe, whether the bytes it waits for are
+ * already there - which separates "nobody wrote" from "somebody wrote
+ * and this thread was never woken". */
+void     syscall64_report_pipe_waits(void);
+void     syscall64_report_futex_waits(void);
+void     syscall64_report_leader_stacks(void);
+
+/* Every pipe holding bytes nobody has taken, and whether any thread is
+ * parked on it - which separates "a wakeup is owed" from "somebody who
+ * should be reading is not". */
+void     syscall64_report_unread_pipes(void);
+uint64_t syscall64_last_arg(void);
+uint64_t syscall64_exit_code(void);
+uint64_t syscall64_bytes_written(void);
+
+/* The last syscall number that fell through to -ENOSYS, and how many
+ * did. With no strace available, running a real program and reading
+ * these is how its requirements get discovered. */
+uint64_t syscall64_unimplemented(void);
+uint64_t syscall64_unimplemented_count(void);
+
+/* Prints every call and its result. Off by default, because it would
+ * otherwise bury the program's own output in the serial transcript the
+ * tests match against. */
+void syscall64_set_trace(int on);
+
+/* Closes every open descriptor. A real kernel does this as part of
+ * process teardown; here the layers share one table. */
+void syscall64_reset_files(void);
+
+/* What readlink("/proc/self/exe") answers. There is no /proc here, so
+ * the loader records it. */
+void syscall64_set_exe_path(const char* path);
+
+/* Set by the kernel when it ends a program itself, so the recorded
+ * status is the kernel's rather than a leftover. */
+void syscall64_set_exit_code(uint64_t code);
+
+/* Threads that ended through exit(2) while siblings were still running -
+ * the case that does NOT end the process. */
+uint64_t syscall64_thread_exits(void);
+
+/* Threads that actually blocked in futex(2), and wakeups that actually
+ * woke one. A run where nothing ever contended would show zero here and
+ * still pass everything else. */
+uint64_t syscall64_futex_waits(void);
+uint64_t syscall64_futex_timed(void);
+uint64_t syscall64_futex_shared(void);
+uint64_t syscall64_futex_wakes(void);
+
+/* File-backed mmap(2) calls served. Zero would mean every mapping in a
+ * run took the anonymous path. */
+uint64_t syscall64_file_maps(void);
+
+/* Processes created and programs replaced. A run where a fork silently
+ * became a thread would look identical without these. */
+uint64_t syscall64_forks(void);
+/* Frames consumed by the most recent fork - the measurement that tells
+ * a shared clone from a copied one (Milestone 69). */
+uint64_t syscall64_last_fork_frames(void);
+uint64_t syscall64_execs(void);
+
+/* How many of those forks were vforks - a parent suspended until its
+ * child execve'd or exited (Milestone 73). */
+uint64_t syscall64_vforks(void);
+
+/* Pipes and socketpairs created (Milestone 74). A socketpair that was
+ * quietly answered as a plain pipe would pass every read/write
+ * assertion and lose one direction; these are how that is caught. */
+uint64_t syscall64_pipes(void);
+uint64_t syscall64_socketpairs(void);
+uint64_t syscall64_sockets(void);
+
+/* The server protocol, counted (Milestone 76). fds_passed is the one
+ * that matters: a sendmsg that carried the bytes and dropped the
+ * descriptor would look like a working socket. */
+uint64_t syscall64_sendmsgs(void);
+uint64_t syscall64_recvmsgs(void);
+uint64_t syscall64_fds_passed(void);
+uint64_t syscall64_renames(void);
+
+/* Writable shared file mappings made (Milestone 78). A MAP_SHARED that
+ * quietly handed back a private copy would satisfy every read and write
+ * a single process could make. */
+uint64_t syscall64_shared_maps(void);
+
+/* Ends a run when this process exits rather than when the last one
+ * does, so a layer can run a program that leaves a daemon behind. -1
+ * for the old behaviour. */
+/* Gives the *current* process descriptors 0, 1 and 2 - /dev/null for
+ * stdin, /dev/console for the other two. Called after the process a
+ * layer is about to run has been made current, because that is when
+ * there is a descriptor table to put them in. */
+void syscall64_open_std(void);
+
+void syscall64_set_leader(int pid);
+
+/* Ends a run after this many timer ticks whether or not anything
+ * finished, so that "it never finished" is a reported fact rather than a
+ * test that hangs. 0 disables. */
+void syscall64_set_run_ticks(uint64_t ticks);
+int  syscall64_run_expired(void);
+
+/* Did the leader actually exit? Without this the exit code reported
+ * after a timed-out run is whatever the last process to exit happened to
+ * return - a number that looks like an answer and is not. */
+int  syscall64_leader_exited(void);
+
+/* An uncaught ring-3 fault in a run of several processes: ends the
+ * faulting process (not the leader) by the signal and does not return.
+ * Returns 0 when that does not apply, and the caller ends the run. */
+int syscall64_fault_kill(int sig, uint64_t rip, uint64_t addr);
+
+/* Ends the current process with SIGKILL because there was no memory to
+ * back a page it was entitled to - see syscall64.c. Does not return. */
+void syscall64_oom_kill(uint64_t addr);
+uint64_t syscall64_oom_kills(void);
+
+#endif
