@@ -4,7 +4,10 @@
 #   make lib            build/target/libNovaC.a + crt0.o for NovarisOS (x86-64)
 #   make target-test    build the freestanding test program and run it on this
 #                       Linux host (same ABI NovarisOS implements)
-#   make check-sysnum   verify syscall numbers against ../../include/syscall64.h
+#   make check-sysnum   verify syscall numbers against NovarisOS's syscall64.h
+#                       (NOVARIS_INC; defaults to ../../include inside a
+#                       NovarisOS tree, else the copy in third_party/novaris)
+#   make update-syscall64 NOVARIS_DIR=...  refresh that copy from NovarisOS
 #   make example        compile-check examples/demo.c
 #
 # The target is x86-64 with the Linux syscall ABI. NOVAC_CC must target x86-64;
@@ -29,7 +32,7 @@ LIB_SRC      := $(PORTABLE_SRC) $(SYSTEM_SRC)
 cc-option = $(shell $(1) $(2) -x c -c /dev/null -o /dev/null 2>/dev/null && echo $(2))
 WARN := -Wall -Wextra -Werror -Wshadow -Wstrict-prototypes
 
-.PHONY: lib child check-target host-test target-test check-sysnum example clean
+.PHONY: lib child check-target host-test target-test check-sysnum update-syscall64 example clean
 
 # ---- NovarisOS target ------------------------------------------------------
 NOVAC_BUILTIN_INC ?= $(shell $(NOVAC_CC) -print-file-name=include 2>/dev/null)
@@ -75,9 +78,18 @@ target-test: $(OUT) $(CHILD)
 	@cp $(CHILD) /tmp/novac_child
 	@./$(OUT); rc=$$?; rm -f /tmp/novac_child; if [ $$rc -eq 131 ]; then echo "PASS: target test exited 131"; else echo "FAIL: exit $$rc"; exit 1; fi
 
+# Where the kernel's syscall64.h comes from: the enclosing NovarisOS tree when
+# libNovaC sits at userland/libnovac, otherwise the vendored copy.
+NOVARIS_INC ?= $(if $(wildcard ../../include/syscall64.h),../../include,third_party/novaris)
+
 check-sysnum:
-	$(HOSTCC) -std=gnu11 -I../../include -fsyntax-only tests/target/check_sysnum.c
-	@echo "PASS: syscall numbers match include/syscall64.h"
+	@test -f $(NOVARIS_INC)/syscall64.h || { echo "error: $(NOVARIS_INC)/syscall64.h not found"; exit 1; }
+	$(HOSTCC) -std=gnu11 -I$(NOVARIS_INC) -fsyntax-only tests/target/check_sysnum.c
+	@echo "PASS: syscall numbers match $(NOVARIS_INC)/syscall64.h"
+
+update-syscall64:
+	@test -n "$(NOVARIS_DIR)" || { echo "usage: make update-syscall64 NOVARIS_DIR=/path/to/NovarisOS"; exit 1; }
+	cp $(NOVARIS_DIR)/include/syscall64.h third_party/novaris/syscall64.h
 
 example: check-target
 	@mkdir -p $(BUILD)/target/examples
