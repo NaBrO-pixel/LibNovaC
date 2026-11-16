@@ -21,6 +21,6 @@
 #endif
 
 #define NOVAC_VERSION_MAJOR 0
-#define NOVAC_VERSION_MINOR 2
+#define NOVAC_VERSION_MINOR 3
 
 #endif

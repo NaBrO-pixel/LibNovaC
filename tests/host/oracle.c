@@ -105,3 +105,23 @@ void oracle_getopt_trace(int argc, char **argv, const char *opts, const void *lo
     }
     snprintf(out + len, n - (size_t)len, "|%d", optind);
 }
+
+#include <time.h>
+/* glibc's strftime over glibc's gmtime of t */
+size_t oracle_strftime(char *buf, size_t n, const char *fmt, long t)
+{
+    time_t tt = t;
+    struct tm tm;
+    gmtime_r(&tt, &tm);
+    return strftime(buf, n, fmt, &tm);
+}
+int oracle_gmtime_fields(long t, int out[9])
+{
+    time_t tt = t;
+    struct tm tm;
+    if (!gmtime_r(&tt, &tm)) return 0;
+    out[0] = tm.tm_sec; out[1] = tm.tm_min; out[2] = tm.tm_hour; out[3] = tm.tm_mday; out[4] = tm.tm_mon;
+    out[5] = tm.tm_year; out[6] = tm.tm_wday; out[7] = tm.tm_yday; out[8] = tm.tm_isdst;
+    return 1;
+}
+char *oracle_ctime(long t, char *buf) { time_t tt = t; struct tm tm; gmtime_r(&tt, &tm); return asctime_r(&tm, buf); }

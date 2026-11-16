@@ -40,4 +40,20 @@
  * (Linux's value; the kernel itself may accept less). */
 #define PATH_MAX 4096
 
+/* Linux values. */
+#define SSIZE_MAX      LONG_MAX
+#define LONG_BIT       64
+#define WORD_BIT       32
+#define NAME_MAX       255
+#define PIPE_BUF       4096
+#define IOV_MAX        1024
+#define HOST_NAME_MAX  64
+#define LOGIN_NAME_MAX 256
+#define LINE_MAX       2048
+#define ARG_MAX        131072
+#define NGROUPS_MAX    65536
+#define SYMLOOP_MAX    40
+#define TTY_NAME_MAX   32
+#define NL_ARGMAX      9
+
 #endif

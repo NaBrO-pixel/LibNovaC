@@ -3,6 +3,7 @@
 #ifndef NOVAC_SIGNAL_H
 #define NOVAC_SIGNAL_H
 #include <sys/types.h>
+#include <time.h>
 #include <novac/defs.h>
 
 #define SIGHUP     1
@@ -86,6 +87,16 @@ struct sigaction {
 #define sa_handler   __sa.sa_handler
 #define sa_sigaction __sa.sa_sigaction
 
+typedef struct {
+    void *ss_sp;
+    int ss_flags;
+    size_t ss_size;
+} stack_t;
+#define SS_ONSTACK  1
+#define SS_DISABLE  2
+#define MINSIGSTKSZ 2048
+#define SIGSTKSZ    8192
+
 NOVAC_BEGIN_DECLS
 sighandler_t signal(int sig, sighandler_t handler);
 int sigaction(int sig, const struct sigaction *restrict act,
@@ -98,5 +109,17 @@ int sigfillset(sigset_t *set);
 int sigaddset(sigset_t *set, int sig);
 int sigdelset(sigset_t *set, int sig);
 int sigismember(const sigset_t *set, int sig);
+int sigsuspend(const sigset_t *mask);
+int sigpending(sigset_t *set);
+int sigaltstack(const stack_t *restrict ss, stack_t *restrict old);
+int sigwait(const sigset_t *restrict set, int *restrict sig);
+int sigwaitinfo(const sigset_t *restrict set, siginfo_t *restrict info);
+int sigtimedwait(const sigset_t *restrict set, siginfo_t *restrict info,
+                 const struct timespec *restrict timeout);
+/* Makes `sig` interrupt system calls (flag 1) or restart them (flag 0). */
+int siginterrupt(int sig, int flag);
+int killpg(pid_t pgrp, int sig);
+/* "s: message" on stderr, like perror for signals. */
+void psignal(int sig, const char *s);
 NOVAC_END_DECLS
 #endif

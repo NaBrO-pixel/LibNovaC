@@ -1,6 +1,7 @@
 #ifndef NOVAC_STDLIB_H
 #define NOVAC_STDLIB_H
 #include <stddef.h>
+#include <stdint.h>
 #include <novac/defs.h>
 
 #define EXIT_SUCCESS 0
@@ -28,9 +29,28 @@ _Noreturn void abort(void);
 _Noreturn void exit(int status);
 _Noreturn void _Exit(int status);
 int   atexit(void (*fn)(void));
+_Noreturn void quick_exit(int status);
+int   at_quick_exit(void (*fn)(void));
 char *getenv(const char *name);
 int   setenv(const char *name, const char *value, int overwrite);
 int   unsetenv(const char *name);
+int   clearenv(void);
+/* Runs "/bin/sh -c cmd" and waits; returns its wait status. system(NULL)
+ * says whether a shell exists. */
+int   system(const char *cmd);
+/* The template ends in "XXXXXX", which is replaced; the file is created
+ * O_EXCL with mode 0600. */
+int   mkstemp(char *tmpl);
+int   mkostemp(char *tmpl, int flags);
+int   mkstemps(char *tmpl, int suffixlen);
+char *mkdtemp(char *tmpl);
+/* Absolute, with "." and ".." and symbolic links resolved; every
+ * component must exist. resolved may be NULL (then free() the result). */
+char *realpath(const char *restrict path, char *restrict resolved);
+/* Unpredictable numbers from the kernel's getrandom. */
+uint32_t arc4random(void);
+void     arc4random_buf(void *buf, size_t n);
+uint32_t arc4random_uniform(uint32_t upper);
 
 int       atoi(const char *s);
 long      atol(const char *s);

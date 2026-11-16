@@ -71,6 +71,8 @@ int     pipe2(int fds[2], int flags);
  * leave the child with _exit(), not exit(). */
 pid_t   fork(void);
 unsigned int sleep(unsigned int seconds);
+/* Sleeps until a signal is caught; always -1 with EINTR. */
+int     pause(void);
 int     usleep(unsigned long usec);
 long    sysconf(int name);
 int     getpagesize(void);

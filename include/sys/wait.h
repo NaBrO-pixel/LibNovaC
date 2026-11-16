@@ -3,13 +3,20 @@
 #include <sys/types.h>
 #include <novac/defs.h>
 
-#define WNOHANG 1
+#define WNOHANG    1
+#define WUNTRACED  2
+#define WSTOPPED   WUNTRACED
+#define WCONTINUED 8
 
 /* Linux wait-status encoding. */
-#define WIFEXITED(s)   (((s) & 0x7f) == 0)
-#define WEXITSTATUS(s) (((s) >> 8) & 0xff)
-#define WIFSIGNALED(s) ((((s) & 0x7f) + 1) >> 1 > 0 && ((s) & 0x7f) != 0x7f)
-#define WTERMSIG(s)    ((s) & 0x7f)
+#define WEXITSTATUS(s)  (((s) >> 8) & 0xff)
+#define WTERMSIG(s)     ((s) & 0x7f)
+#define WSTOPSIG(s)     WEXITSTATUS(s)
+#define WIFEXITED(s)    (WTERMSIG(s) == 0)
+#define WIFSTOPPED(s)   (((s) & 0xff) == 0x7f)
+#define WIFSIGNALED(s)  (((s) & 0xffff) - 1U < 0xffU)
+#define WIFCONTINUED(s) ((s) == 0xffff)
+#define WCOREDUMP(s)    ((s) & 0x80)
 
 NOVAC_BEGIN_DECLS
 pid_t wait(int *status);

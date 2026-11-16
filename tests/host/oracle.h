@@ -23,4 +23,7 @@ int    oracle_inet_pton(int af, const char *s, void *dst);
 const char *oracle_inet_ntop(int af, const void *src, char *dst, unsigned size);
 int    oracle_inet_aton(const char *s, unsigned *out);
 void   oracle_getopt_trace(int argc, char **argv, const char *opts, const void *longopts, char *out, size_t n);
+size_t oracle_strftime(char *buf, size_t n, const char *fmt, long t);
+int    oracle_gmtime_fields(long t, int out[9]);
+char  *oracle_ctime(long t, char *buf);
 #endif

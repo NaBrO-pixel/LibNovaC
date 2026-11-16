@@ -7,13 +7,17 @@
 extern int main(int argc, char **argv, char **envp);
 
 char **environ;
+unsigned long *novac__auxv;           /* the auxiliary vector, for getauxval */
 
 __attribute__((used, noreturn))
 static void novac_start_c(long *sp)
 {
     int argc = (int)sp[0];
     char **argv = (char **)(sp + 1);
+    char **e;
     environ = argv + argc + 1;
+    for (e = environ; *e; e++) {}
+    novac__auxv = (unsigned long *)(e + 1);
     exit(main(argc, argv, environ));
 }
 

@@ -127,3 +127,62 @@ void novac__raise_abort(void)
     signal(SIGABRT, SIG_DFL);
     raise(SIGABRT);
 }
+
+/* ---- waiting for and examining signals ----------------------------------- */
+
+int sigsuspend(const sigset_t *mask)
+{
+    return (int)novac_sys2(NOVAC_SYS_rt_sigsuspend, mask, sizeof(sigset_t));
+}
+
+int sigpending(sigset_t *set)
+{
+    return (int)novac_sys2(NOVAC_SYS_rt_sigpending, set, sizeof(sigset_t));
+}
+
+int sigaltstack(const stack_t *restrict ss, stack_t *restrict old)
+{
+    return (int)novac_sys2(NOVAC_SYS_sigaltstack, ss, old);
+}
+
+int sigtimedwait(const sigset_t *restrict set, siginfo_t *restrict info,
+                 const struct timespec *restrict timeout)
+{
+    return (int)novac_sys4(NOVAC_SYS_rt_sigtimedwait, set, info, timeout, sizeof(sigset_t));
+}
+
+int sigwaitinfo(const sigset_t *restrict set, siginfo_t *restrict info)
+{
+    return sigtimedwait(set, info, NULL);
+}
+
+int sigwait(const sigset_t *restrict set, int *restrict sig)
+{
+    int r;
+    do r = sigtimedwait(set, NULL, NULL); while (r < 0 && errno == EINTR);
+    if (r < 0) return errno;                 /* sigwait returns the error number */
+    *sig = r;
+    return 0;
+}
+
+int siginterrupt(int sig, int flag)
+{
+    struct sigaction sa;
+    if (sigaction(sig, NULL, &sa) < 0) return -1;
+    if (flag) sa.sa_flags &= ~SA_RESTART; else sa.sa_flags |= SA_RESTART;
+    return sigaction(sig, &sa, NULL);
+}
+
+int killpg(pid_t pgrp, int sig)
+{
+    if (pgrp < 0) { errno = EINVAL; return -1; }
+    return kill(-pgrp, sig);
+}
+
+#include <stdio.h>
+#include <string.h>
+void psignal(int sig, const char *s)
+{
+    if (s && *s) fprintf(stderr, "%s: %s\n", s, strsignal(sig));
+    else fprintf(stderr, "%s\n", strsignal(sig));
+}

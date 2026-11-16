@@ -22,6 +22,7 @@
 #include <sched.h>
 #include <poll.h>
 #include <time.h>
+#include <signal.h>
 #include "../internal/syscall.h"
 
 ssize_t pread(int fd, void *b, size_t n, off_t o)        { return novac_sys4(NOVAC_SYS_pread64, fd, b, n, o); }
@@ -197,6 +198,13 @@ long sysconf(int name)
         return 1024;
     default: errno = EINVAL; return -1;
     }
+}
+
+int pause(void)
+{
+    sigset_t cur;
+    sigprocmask(SIG_BLOCK, NULL, &cur);
+    return sigsuspend(&cur);
 }
 
 int usleep(unsigned long usec)

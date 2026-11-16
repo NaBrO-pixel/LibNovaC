@@ -75,6 +75,12 @@ void test_stdext(void)
       { char b[64]; snprintf(b, sizeof b, "%" PRId64 " %" PRIx32 " %" PRIuMAX, (int64_t)-1, (uint32_t)255, (uintmax_t)7);
         CHECK_STR(b, "-1 ff 7"); } }
 
+    { char *p = NULL;
+      CHECK_EQ(asprintf(&p, "%s=%d %.2f", "x", 42, 2.5), 9); CHECK_STR(p, "x=42 2.50"); free(p);
+      CHECK_EQ(asprintf(&p, "%s", ""), 0); CHECK_STR(p, ""); free(p);
+      { char big[3000]; memset(big, 'q', sizeof big - 1); big[sizeof big - 1] = 0;
+        CHECK_EQ(asprintf(&p, "<%s>", big), 3001); CHECK(p && p[0] == '<' && p[3000] == '>' && p[3001] == 0); free(p); } }
+
     CHECK_STR(setlocale(LC_ALL, ""), "C");
     CHECK_STR(setlocale(LC_NUMERIC, NULL), "C");
     CHECK(setlocale(LC_ALL, "en_US.UTF-8") == NULL);

@@ -55,6 +55,7 @@ int main(void)
     RUN(test_math);
     RUN(test_stdext);
     RUN(test_net);
+    RUN(test_time);
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

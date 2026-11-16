@@ -1,30 +1,43 @@
-/* Minimal libNovaC program: formats, allocates and sorts without any host libc.
- * Returns 0 on success so a test runner can check the exit status; there is
- * no printf yet (see README). Entry-point/startup code is supplied by the
- * NovarisOS port, which is why `make example` only compile-checks this. */
+/* A small libNovaC program: word statistics for its arguments (or a
+ * built-in sentence), using qsort, strtok_r, a memory stream, floating-point
+ * printf and <math.h> - with no host C library at all.
+ *
+ *   make example && ./build/target/examples/demo the quick brown fox
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
-static int cmp(const void *a, const void *b)
+static int by_length(const void *a, const void *b)
 {
-    int x = *(const int *)a, y = *(const int *)b;
-    return (x > y) - (x < y);
+    const char *x = *(const char *const *)a, *y = *(const char *const *)b;
+    size_t lx = strlen(x), ly = strlen(y);
+    return lx != ly ? (lx < ly ? -1 : 1) : strcmp(x, y);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-    int v[] = { 5, 3, 9, 1 };
-    char line[32];
-    char *copy;
+    char text[] = "libNovaC brings its own start-up code, stdio, math and allocator";
+    char *words[64], *save, *w, *report = NULL;
+    size_t n = 0, i, size = 0;
+    double mean = 0, var = 0;
+    FILE *out;
 
-    qsort(v, 4, sizeof v[0], cmp);
-    if (snprintf(line, sizeof line, "min=%d max=%d", v[0], v[3]) < 0) return 1;
+    if (argc > 1) for (i = 1; i < (size_t)argc && n < 64; i++) words[n++] = argv[i];
+    else for (w = strtok_r(text, " ,", &save); w && n < 64; w = strtok_r(NULL, " ,", &save)) words[n++] = w;
+    qsort(words, n, sizeof words[0], by_length);
 
-    copy = malloc(strlen(line) + 1);
-    if (!copy) return 2;
-    strcpy(copy, line);
-    if (strcmp(copy, "min=1 max=9") != 0) return 3;
-    free(copy);
+    for (i = 0; i < n; i++) mean += (double)strlen(words[i]);
+    mean /= (double)(n ? n : 1);
+    for (i = 0; i < n; i++) var += pow((double)strlen(words[i]) - mean, 2);
+
+    out = open_memstream(&report, &size);
+    if (!out) return 1;
+    fprintf(out, "%zu words, shortest \"%s\", longest \"%s\"\n", n, n ? words[0] : "", n ? words[n - 1] : "");
+    fprintf(out, "mean length %.3f, standard deviation %.3f\n", mean, sqrt(var / (double)(n ? n : 1)));
+    fclose(out);
+    fputs(report, stdout);
+    free(report);
     return 0;
 }
