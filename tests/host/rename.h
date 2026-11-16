@@ -64,6 +64,12 @@
 #define vsnprintf novact_vsnprintf
 #define sprintf novact_sprintf
 #define vsprintf novact_vsprintf
+#define strtod novact_strtod
+#define strtof novact_strtof
+#define strtold novact_strtold
+#define atof novact_atof
+#define sscanf novact_sscanf
+#define vsscanf novact_vsscanf
 #define div_t novact_div_t
 #define ldiv_t novact_ldiv_t
 #define lldiv_t novact_lldiv_t

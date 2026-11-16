@@ -16,6 +16,8 @@ int sprintf(char *restrict buf, const char *restrict fmt, ...)
     NOVAC_PRINTF_LIKE(2, 3);
 int vsprintf(char *restrict buf, const char *restrict fmt, va_list ap)
     NOVAC_PRINTF_LIKE(2, 0);
+int sscanf(const char *restrict s, const char *restrict fmt, ...) NOVAC_SCANF_LIKE(2, 3);
+int vsscanf(const char *restrict s, const char *restrict fmt, va_list ap) NOVAC_SCANF_LIKE(2, 0);
 
 #define EOF      (-1)
 #define BUFSIZ   1024

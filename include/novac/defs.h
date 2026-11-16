@@ -14,8 +14,10 @@
 /* Compile-time format checking where the compiler supports it. */
 #if defined(__GNUC__) || defined(__clang__)
 # define NOVAC_PRINTF_LIKE(fmt, first) __attribute__((format(printf, fmt, first)))
+# define NOVAC_SCANF_LIKE(fmt, first) __attribute__((format(scanf, fmt, first)))
 #else
 # define NOVAC_PRINTF_LIKE(fmt, first)
+# define NOVAC_SCANF_LIKE(fmt, first)
 #endif
 
 #define NOVAC_VERSION_MAJOR 0

@@ -32,6 +32,12 @@ long               strtol(const char *restrict s, char **restrict end, int base)
 long long          strtoll(const char *restrict s, char **restrict end, int base);
 unsigned long      strtoul(const char *restrict s, char **restrict end, int base);
 unsigned long long strtoull(const char *restrict s, char **restrict end, int base);
+/* Correctly rounded (ties to even); decimal, hex ("0x1.8p3"), inf, nan.
+ * strtold converts at double precision. */
+double      strtod(const char *restrict s, char **restrict end);
+float       strtof(const char *restrict s, char **restrict end);
+long double strtold(const char *restrict s, char **restrict end);
+double      atof(const char *s);
 
 int       abs(int x);
 long      labs(long x);
