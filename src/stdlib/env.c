@@ -109,3 +109,10 @@ int unsetenv(const char *name)
     }
     return 0;
 }
+
+int clearenv(void)
+{
+    if (environ == owned_env && owned_env) owned_env[0] = NULL;
+    else environ = NULL;
+    return 0;
+}

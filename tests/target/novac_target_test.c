@@ -22,9 +22,11 @@
 
 #define ROOT "/tmp/novac_t"
 
+#include "target.h"
+
 static int failures;
 
-static void ok(const char *what, int cond)
+void ok(const char *what, int cond)
 {
     printf("%-4s %s\n", cond ? "ok" : "FAIL", what);
     if (!cond) failures++;
@@ -540,6 +542,7 @@ int main(int argc, char **argv)
     test_signals();
     test_exec();
     test_env(argc, argv);
+    test_v03();
     printf("novac64: %d failures\n", failures);
     return failures ? 1 : 131;
 }

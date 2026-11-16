@@ -35,4 +35,5 @@ void test_strext(void);
 void test_math(void);
 void test_stdext(void);
 void test_net(void);
+void test_time(void);
 #endif

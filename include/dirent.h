@@ -29,5 +29,16 @@ DIR *opendir(const char *path);
  * (errno set). The result is valid until the next readdir/closedir. */
 struct dirent *readdir(DIR *d);
 int closedir(DIR *d);
+DIR *fdopendir(int fd);
+int  dirfd(DIR *d);
+void rewinddir(DIR *d);
+long telldir(DIR *d);
+void seekdir(DIR *d, long pos);
+/* Reads a whole directory: entries `filter` accepts, sorted by `compar`;
+ * returns the count and an array the caller frees (each entry and the
+ * array), or -1. */
+int  scandir(const char *path, struct dirent ***list, int (*filter)(const struct dirent *),
+             int (*compar)(const struct dirent **, const struct dirent **));
+int  alphasort(const struct dirent **a, const struct dirent **b);
 NOVAC_END_DECLS
 #endif

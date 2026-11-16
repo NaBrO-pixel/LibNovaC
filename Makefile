@@ -8,7 +8,9 @@
 #                       (NOVARIS_INC; defaults to ../../include inside a
 #                       NovarisOS tree, else the copy in third_party/novaris)
 #   make update-syscall64 NOVARIS_DIR=...  refresh that copy from NovarisOS
-#   make example        compile-check examples/demo.c
+#   make example        build examples/demo.c into a static program
+#   make link-check     link every object of libNovaC.a into one program, so an
+#                       undefined symbol (or a libgcc helper) anywhere fails
 #
 # The target is x86-64 with the Linux syscall ABI. NOVAC_CC must target x86-64;
 # the build refuses anything else so it cannot silently use a wrong compiler.
@@ -23,16 +25,16 @@ BUILD     ?= build
 OUT       ?= $(BUILD)/target/novac_target_test.elf
 
 PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c src/fp/*.c src/math/*.c) \
-                src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c src/net/inet.c src/unistd/getopt.c
-SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/unistd/unistd.c src/unistd/posix.c src/time/time.c \
-                src/sys/novaris/sys.c src/signal/signal.c src/net/socket.c
+                src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c src/net/inet.c src/unistd/getopt.c src/time/calendar.c
+SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/stdio/memstream.c src/unistd/unistd.c src/unistd/posix.c src/time/time.c \
+                src/sys/novaris/sys.c src/signal/signal.c src/net/socket.c src/setjmp/setjmp.c src/unistd/system.c
 CRT_SRC      := src/arch/x86_64/start.c
 LIB_SRC      := $(PORTABLE_SRC) $(SYSTEM_SRC)
 
 cc-option = $(shell $(1) $(2) -x c -c /dev/null -o /dev/null 2>/dev/null && echo $(2))
 WARN := -Wall -Wextra -Werror -Wshadow -Wstrict-prototypes
 
-.PHONY: lib child check-target host-test target-test check-sysnum update-syscall64 example clean
+.PHONY: lib child check-target host-test target-test check-sysnum update-syscall64 example link-check clean
 
 # ---- NovarisOS target ------------------------------------------------------
 NOVAC_BUILTIN_INC ?= $(shell $(NOVAC_CC) -print-file-name=include 2>/dev/null)
@@ -55,12 +57,13 @@ $(BUILD)/target/crt0.o: $(CRT_SRC) | check-target
 	@mkdir -p $(dir $@)
 	$(NOVAC_CC) $(TGT_FLAGS) -c $< -o $@
 
-$(BUILD)/target/tests/target/%.o: tests/target/%.c | check-target
+$(BUILD)/target/tests/target/%.o: tests/target/%.c tests/target/target.h | check-target
 	@mkdir -p $(dir $@)
 	$(NOVAC_CC) $(TGT_FLAGS) -c $< -o $@
 
 # A static, libc-free executable: our crt0 + the program + libNovaC.a.
-$(OUT): $(BUILD)/target/crt0.o $(BUILD)/target/tests/target/novac_target_test.o $(BUILD)/target/libNovaC.a
+$(OUT): $(BUILD)/target/crt0.o $(BUILD)/target/tests/target/novac_target_test.o \
+        $(BUILD)/target/tests/target/novac_target_v03.o $(BUILD)/target/libNovaC.a
 	@mkdir -p $(dir $@)
 	$(NOVAC_LD) -m elf_x86_64 -static -nostdlib -z noexecstack -e _start -o $@ $^
 
@@ -73,7 +76,7 @@ $(CHILD): $(BUILD)/target/crt0.o $(BUILD)/target/tests/target/novac_child.o $(BU
 
 child: $(CHILD)
 
-target-test: $(OUT) $(CHILD)
+target-test: $(OUT) $(CHILD) link-check
 	@file $(OUT) | grep -q "statically linked" || { echo "ERROR: $(OUT) is not static"; exit 1; }
 	@cp $(CHILD) /tmp/novac_child
 	@./$(OUT); rc=$$?; rm -f /tmp/novac_child; if [ $$rc -eq 131 ]; then echo "PASS: target test exited 131"; else echo "FAIL: exit $$rc"; exit 1; fi
@@ -91,9 +94,17 @@ update-syscall64:
 	@test -n "$(NOVARIS_DIR)" || { echo "usage: make update-syscall64 NOVARIS_DIR=/path/to/NovarisOS"; exit 1; }
 	cp $(NOVARIS_DIR)/include/syscall64.h third_party/novaris/syscall64.h
 
-example: check-target
-	@mkdir -p $(BUILD)/target/examples
-	$(NOVAC_CC) $(TGT_FLAGS) -c examples/demo.c -o $(BUILD)/target/examples/demo.o
+$(BUILD)/target/examples/demo: examples/demo.c $(BUILD)/target/crt0.o $(BUILD)/target/libNovaC.a | check-target
+	@mkdir -p $(dir $@)
+	$(NOVAC_CC) $(TGT_FLAGS) -c examples/demo.c -o $@.o
+	$(NOVAC_LD) -m elf_x86_64 -static -nostdlib -z noexecstack -e _start -o $@ $(BUILD)/target/crt0.o $@.o $(BUILD)/target/libNovaC.a
+
+example: $(BUILD)/target/examples/demo
+
+link-check: $(BUILD)/target/examples/demo
+	$(NOVAC_LD) -m elf_x86_64 -static -nostdlib -z noexecstack -e _start -o $(BUILD)/target/link-check.elf \
+	    $(BUILD)/target/crt0.o $(BUILD)/target/examples/demo.o --whole-archive $(BUILD)/target/libNovaC.a --no-whole-archive
+	@echo "PASS: every object in libNovaC.a links with no other library"
 
 # ---- Host tests (portable core only; rename.h keeps symbols apart from libc) -
 HOST_INC  := $(shell $(HOSTCC) -print-file-name=include)

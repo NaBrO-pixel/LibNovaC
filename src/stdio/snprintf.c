@@ -50,3 +50,42 @@ int sprintf(char *restrict buf, const char *restrict fmt, ...)
     va_end(ap);
     return r;
 }
+
+/* asprintf: formats into a buffer that grows as needed. */
+#include <stdlib.h>
+typedef struct { char *buf; size_t cap, len; int oom; } growctx_t;
+static void grow_sink(void *v, const char *s, size_t n)
+{
+    growctx_t *g = v;
+    if (g->oom) return;
+    if (g->len + n + 1 > g->cap) {
+        size_t nc = g->cap ? g->cap : 64;
+        char *p;
+        while (g->len + n + 1 > nc) nc *= 2;
+        p = realloc(g->buf, nc);
+        if (!p) { g->oom = 1; return; }
+        g->buf = p; g->cap = nc;
+    }
+    memcpy(g->buf + g->len, s, n);
+    g->len += n;
+}
+
+int vasprintf(char **restrict out, const char *restrict fmt, va_list ap)
+{
+    growctx_t g = { NULL, 0, 0, 0 };
+    int r = novac_format(grow_sink, &g, fmt, ap);
+    if (r < 0 || g.oom) { free(g.buf); if (g.oom) errno = ENOMEM; return -1; }
+    if (!g.buf) { g.buf = malloc(1); if (!g.buf) { errno = ENOMEM; return -1; } }
+    g.buf[g.len] = 0;
+    *out = g.buf;
+    return r;
+}
+
+int asprintf(char **restrict out, const char *restrict fmt, ...)
+{
+    va_list ap; int r;
+    va_start(ap, fmt);
+    r = vasprintf(out, fmt, ap);
+    va_end(ap);
+    return r;
+}

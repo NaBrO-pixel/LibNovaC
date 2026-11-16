@@ -30,6 +30,24 @@ _Noreturn void exit(int status)
 
 _Noreturn void _Exit(int status) { novac_sys_exit(status); }
 
+static void (*quick_handlers[NOVAC_ATEXIT_MAX])(void);
+static size_t quick_count;
+
+int at_quick_exit(void (*fn)(void))
+{
+    if (!fn)                              { errno = EINVAL; return -1; }
+    if (quick_count == NOVAC_ATEXIT_MAX)  { errno = ENOMEM; return -1; }
+    quick_handlers[quick_count++] = fn;
+    return 0;
+}
+
+/* Runs the at_quick_exit handlers only: no atexit handlers, no stdio flush. */
+_Noreturn void quick_exit(int status)
+{
+    while (quick_count > 0) quick_handlers[--quick_count]();
+    novac_sys_exit(status);
+}
+
 /* abort() raises SIGABRT where the signal module is linked - the real
  * target - so a parent's wait() sees a death by SIGABRT, as POSIX says.
  * The portable core (and the host unit tests, which have no signals) links
