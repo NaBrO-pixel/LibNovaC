@@ -1,7 +1,7 @@
 /* NovarisOS binding for the three kernel hooks in src/internal/sys.h.
  * Built only for the real target (Makefile NOVAC_SYS_SRC), never for host
  * unit tests. Uses the Linux x86-64 calls NovarisOS implements:
- * mmap(9), munmap(11), exit_group(231). */
+ * mmap(9), munmap(11), write(1), exit_group(231). */
 #include <stddef.h>
 #include "../../internal/sys.h"
 #include "../../internal/syscall.h"
@@ -28,6 +28,16 @@ void *novac_sys_map(size_t *size)
 int novac_sys_unmap(void *addr, size_t size)
 {
     return novac_syscall6(NOVAC_SYS_munmap, (long)addr, (long)size, 0, 0, 0, 0) == 0 ? 0 : -1;
+}
+
+void novac_sys_write_stderr(const char *s, size_t n)
+{
+    while (n) {
+        long r = novac_syscall6(NOVAC_SYS_write, 2, (long)s, (long)n, 0, 0, 0);
+        if (r == -4) continue;                  /* EINTR */
+        if (r <= 0) return;
+        s += r; n -= (size_t)r;
+    }
 }
 
 _Noreturn void novac_sys_exit(int status)

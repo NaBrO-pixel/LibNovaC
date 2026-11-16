@@ -16,6 +16,13 @@ void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 void  free(void *ptr);
+/* align must be a power of two (and, for posix_memalign, a multiple of
+ * sizeof(void *)). The memory is released with free(). */
+void *aligned_alloc(size_t align, size_t size);
+int   posix_memalign(void **out, size_t align, size_t size);
+void *memalign(size_t align, size_t size);
+void *reallocarray(void *ptr, size_t nmemb, size_t size);
+size_t malloc_usable_size(void *ptr);
 
 _Noreturn void abort(void);
 _Noreturn void exit(int status);
@@ -50,9 +57,25 @@ void  qsort(void *base, size_t nmemb, size_t size,
             int (*cmp)(const void *, const void *));
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
               int (*cmp)(const void *, const void *));
+/* GNU argument order: the context is the comparator's third argument. */
+void  qsort_r(void *base, size_t nmemb, size_t size,
+              int (*cmp)(const void *, const void *, void *), void *arg);
 
 /* Linear congruential generator. NOT suitable for security purposes. */
 int   rand(void);
 void  srand(unsigned int seed);
+int   rand_r(unsigned int *seed);
+long  random(void);
+void  srandom(unsigned int seed);
+/* POSIX 48-bit generators: same sequences as any other C library. */
+double drand48(void);
+double erand48(unsigned short x[3]);
+long   lrand48(void);
+long   nrand48(unsigned short x[3]);
+long   mrand48(void);
+long   jrand48(unsigned short x[3]);
+void   srand48(long seed);
+unsigned short *seed48(unsigned short seed[3]);
+void   lcong48(unsigned short param[7]);
 NOVAC_END_DECLS
 #endif

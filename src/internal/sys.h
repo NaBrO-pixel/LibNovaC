@@ -1,5 +1,5 @@
 /* System-call abstraction layer: the ONLY kernel-facing surface the portable
- * library depends on. A NovarisOS port implements these three functions on
+ * library depends on. A NovarisOS port implements these four functions on
  * top of the real kernel interfaces. Nothing else in libNovaC talks to the
  * kernel. */
 #ifndef NOVAC_INTERNAL_SYS_H
@@ -15,6 +15,10 @@ void *novac_sys_map(size_t *size);
 /* Release a region previously returned by novac_sys_map, passing the exact
  * granted size. Returns 0 on success, nonzero on failure. */
 int novac_sys_unmap(void *addr, size_t size);
+
+/* Write a diagnostic to standard error (fd 2), unbuffered; errors ignored.
+ * For the portable core's few messages (getopt). */
+void novac_sys_write_stderr(const char *s, size_t n);
 
 /* Terminate the calling process with `status`. Never returns. */
 _Noreturn void novac_sys_exit(int status);

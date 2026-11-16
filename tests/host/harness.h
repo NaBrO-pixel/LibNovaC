@@ -33,4 +33,6 @@ void test_float(void);
 void test_scan(void);
 void test_strext(void);
 void test_math(void);
+void test_stdext(void);
+void test_net(void);
 #endif

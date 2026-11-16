@@ -18,5 +18,11 @@ static inline long novac_ret(long r)
 #define novac_sys1(n, a)       novac_ret(novac_syscall6((n), (long)(a), 0, 0, 0, 0, 0))
 #define novac_sys2(n, a, b)    novac_ret(novac_syscall6((n), (long)(a), (long)(b), 0, 0, 0, 0))
 #define novac_sys3(n, a, b, c) novac_ret(novac_syscall6((n), (long)(a), (long)(b), (long)(c), 0, 0, 0))
+#define novac_sys4(n, a, b, c, d) \
+    novac_ret(novac_syscall6((n), (long)(a), (long)(b), (long)(c), (long)(d), 0, 0))
+#define novac_sys5(n, a, b, c, d, e) \
+    novac_ret(novac_syscall6((n), (long)(a), (long)(b), (long)(c), (long)(d), (long)(e), 0))
+#define novac_sys6(n, a, b, c, d, e, f) \
+    novac_ret(novac_syscall6((n), (long)(a), (long)(b), (long)(c), (long)(d), (long)(e), (long)(f)))
 
 #endif
