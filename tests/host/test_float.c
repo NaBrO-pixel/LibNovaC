@@ -49,7 +49,7 @@ static void cmp_fmt(const char *fmt, double v)
     b = oracle_snprintf(want, sizeof want, fmt, v);
     if (a != b || strcmp(ours, want) != 0) {
         if (mismatches++ < 10)
-            printf("  printf(\"%s\", %a): got \"%s\" (%d), want \"%s\" (%d)\n", fmt, v, ours, a, want, b);
+            th_note("  printf(\"%s\", %a): got \"%s\" (%d), want \"%s\" (%d)\n", fmt, v, ours, a, want, b);
         CHECK(0);
     } else CHECK(1);
 }
@@ -64,7 +64,7 @@ static void cmp_strtod(const char *s)
     want = oracle_strtod(s, &e2, &err2);
     if (to_bits(got) != to_bits(want) || e1 != e2) {
         if (mismatches++ < 10)
-            printf("  strtod(\"%.80s\"): got %a end+%d, want %a end+%d\n", s, got, (int)(e1 - s), want, (int)(e2 - s));
+            th_note("  strtod(\"%.80s\"): got %a end+%d, want %a end+%d\n", s, got, (int)(e1 - s), want, (int)(e2 - s));
         CHECK(0);
     } else CHECK(1);
 }
@@ -76,7 +76,7 @@ static void cmp_strtof(const char *s)
     float got = strtof(s, &e1), want = oracle_strtof(s, &e2, &err2);
     if (fbits(got) != fbits(want) || e1 != e2) {
         if (mismatches++ < 10)
-            printf("  strtof(\"%.80s\"): got %a, want %a\n", s, (double)got, (double)want);
+            th_note("  strtof(\"%.80s\"): got %a, want %a\n", s, (double)got, (double)want);
         CHECK(0);
     } else CHECK(1);
 }

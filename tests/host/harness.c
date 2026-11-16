@@ -1,9 +1,18 @@
 /* Host-side runner. Compiled with the HOST's headers (not libNovaC's). */
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include "harness.h"
 
 static int checks, failures;
+
+void th_note(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
 
 void th_check(int cond, const char *expr, const char *file, int line)
 {
@@ -42,6 +51,8 @@ int main(void)
     RUN(test_misc);
     RUN(test_float);
     RUN(test_scan);
+    RUN(test_strext);
+    RUN(test_math);
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

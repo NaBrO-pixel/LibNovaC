@@ -8,6 +8,9 @@ void th_check(int cond, const char *expr, const char *file, int line);
 void th_check_ll(long long got, long long want, const char *expr, const char *file, int line);
 void th_check_str(const char *got, const char *want, const char *expr, const char *file, int line);
 
+/* printf through the HOST's stdio (test TUs cannot call libNovaC's). */
+void th_note(const char *fmt, ...);
+
 #define CHECK(c)        th_check(!!(c), #c, __FILE__, __LINE__)
 #define CHECK_EQ(a, b)  th_check_ll((long long)(a), (long long)(b), #a " == " #b, __FILE__, __LINE__)
 #define CHECK_STR(a, b) th_check_str((a), (b), #a " == " #b, __FILE__, __LINE__)
@@ -28,4 +31,6 @@ void test_alloc(void);
 void test_misc(void);
 void test_float(void);
 void test_scan(void);
+void test_strext(void);
+void test_math(void);
 #endif
