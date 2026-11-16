@@ -22,7 +22,7 @@ HOSTCC    ?= cc
 BUILD     ?= build
 OUT       ?= $(BUILD)/target/novac_target_test.elf
 
-PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c src/fp/*.c) \
+PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c src/fp/*.c src/math/*.c) \
                 src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c
 SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/unistd/unistd.c src/time/time.c src/sys/novaris/sys.c \
                 src/signal/signal.c
@@ -36,7 +36,7 @@ WARN := -Wall -Wextra -Werror -Wshadow -Wstrict-prototypes
 
 # ---- NovarisOS target ------------------------------------------------------
 NOVAC_BUILTIN_INC ?= $(shell $(NOVAC_CC) -print-file-name=include 2>/dev/null)
-TGT_FLAGS = -std=c11 -m64 -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-pic -O2 $(WARN) \
+TGT_FLAGS = -std=c11 -m64 -ffp-contract=off -ffreestanding -fno-builtin -fno-stack-protector -fno-pie -fno-pic -O2 $(WARN) \
             $(call cc-option,$(NOVAC_CC),-fno-tree-loop-distribute-patterns) \
             -nostdinc -isystem include -isystem $(NOVAC_BUILTIN_INC)
 TGT_OBJ := $(patsubst %.c,$(BUILD)/target/%.o,$(LIB_SRC))
@@ -100,7 +100,7 @@ HOST_INC  := $(shell $(HOSTCC) -print-file-name=include)
 SAN_FLAGS := -fsanitize=address,undefined
 HOST_SAN  := $(shell $(HOSTCC) $(SAN_FLAGS) -x c -c /dev/null -o /dev/null 2>/dev/null && echo $(SAN_FLAGS))
 HOST_OPT ?= -O1
-HOST_COMMON := -std=c11 -g $(HOST_OPT) $(WARN) $(call cc-option,$(HOSTCC),-fno-tree-loop-distribute-patterns) \
+HOST_COMMON := -std=c11 -ffp-contract=off -g $(HOST_OPT) $(WARN) $(call cc-option,$(HOSTCC),-fno-tree-loop-distribute-patterns) \
                $(HOST_SAN) -fno-omit-frame-pointer
 HOST_LIB_FLAGS := $(HOST_COMMON) -ffreestanding -fno-builtin -nostdinc -isystem include \
                -isystem $(HOST_INC) -include tests/host/rename.h
@@ -108,10 +108,10 @@ HOST_LIB_OBJ  := $(patsubst %.c,$(BUILD)/host/%.o,$(PORTABLE_SRC))
 HOST_TEST_SRC := $(wildcard tests/host/test_*.c)
 HOST_TEST_OBJ := $(patsubst %.c,$(BUILD)/host/%.o,$(HOST_TEST_SRC))
 
-$(BUILD)/host/src/%.o: src/%.c
+$(BUILD)/host/src/%.o: src/%.c tests/host/rename.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) $(HOST_LIB_FLAGS) -c $< -o $@
-$(BUILD)/host/tests/host/test_%.o: tests/host/test_%.c
+$(BUILD)/host/tests/host/test_%.o: tests/host/test_%.c tests/host/rename.h tests/host/harness.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) $(HOST_LIB_FLAGS) -Wno-format -c $< -o $@
 $(BUILD)/host/tests/host/harness.o: tests/host/harness.c

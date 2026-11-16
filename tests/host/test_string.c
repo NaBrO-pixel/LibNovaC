@@ -106,7 +106,8 @@ void test_string(void)
     (void)fill;
 
     /* strerror */
-    CHECK_STR(strerror(ENOMEM), "Out of memory");
+    CHECK_STR(strerror(ENOMEM), "Cannot allocate memory");
+    CHECK_STR(strerror(ECONNREFUSED), "Connection refused");
     CHECK_STR(strerror(0), "Success");
     CHECK_STR(strerror(99999), "Unknown error");
 }
