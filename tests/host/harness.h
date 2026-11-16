@@ -26,4 +26,6 @@ void test_convert(void);
 void test_format(void);
 void test_alloc(void);
 void test_misc(void);
+void test_float(void);
+void test_scan(void);
 #endif

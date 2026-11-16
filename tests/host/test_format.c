@@ -131,8 +131,10 @@ void test_format(void)
     CHECK_EQ(snprintf(NULL, 5, "x"), -1); CHECK_EQ(errno, EINVAL);
 
     /* errors: unsupported or malformed specifiers fail visibly */
-    { const char *f = "%f"; errno = 0;
+    { const char *f = "%hf"; errno = 0;
       CHECK_EQ(snprintf(b, sizeof b, f, 1.0), -1); CHECK_EQ(errno, EINVAL); }
+    { const char *f = "%Ld"; errno = 0;
+      CHECK_EQ(snprintf(b, sizeof b, f, 1), -1); CHECK_EQ(errno, EINVAL); }
     { const char *f = "abc%"; errno = 0;
       CHECK_EQ(snprintf(b, sizeof b, f), -1); CHECK_EQ(errno, EINVAL); }
     { const char *f = "%q"; errno = 0;
@@ -142,5 +144,5 @@ void test_format(void)
     { const char *f = "%99999999999d"; errno = 0;
       CHECK_EQ(snprintf(b, sizeof b, f, 1), -1); CHECK_EQ(errno, EOVERFLOW); }
     /* buffer stays terminated after an error */
-    { const char *f = "ok%f"; snprintf(b, sizeof b, f, 1.0); CHECK_STR(b, "ok"); }
+    { const char *f = "ok%q"; snprintf(b, sizeof b, f, 1.0); CHECK_STR(b, "ok"); }
 }

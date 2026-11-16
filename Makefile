@@ -22,8 +22,8 @@ HOSTCC    ?= cc
 BUILD     ?= build
 OUT       ?= $(BUILD)/target/novac_target_test.elf
 
-PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c) \
-                src/stdio/format.c src/stdio/snprintf.c
+PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c src/fp/*.c) \
+                src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c
 SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/unistd/unistd.c src/time/time.c src/sys/novaris/sys.c \
                 src/signal/signal.c
 CRT_SRC      := src/arch/x86_64/start.c
@@ -120,9 +120,13 @@ $(BUILD)/host/tests/host/harness.o: tests/host/harness.c
 $(BUILD)/host/tests/host/host_sys.o: tests/host/host_sys.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) $(HOST_COMMON) -c $< -o $@
+$(BUILD)/host/tests/host/oracle.o: tests/host/oracle.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) $(HOST_COMMON) -c $< -o $@
 
-$(BUILD)/host/run-tests: $(HOST_LIB_OBJ) $(HOST_TEST_OBJ) $(BUILD)/host/tests/host/harness.o $(BUILD)/host/tests/host/host_sys.o
-	$(HOSTCC) $(HOST_SAN) $^ -o $@
+HOST_SUPPORT_OBJ := $(BUILD)/host/tests/host/harness.o $(BUILD)/host/tests/host/host_sys.o $(BUILD)/host/tests/host/oracle.o
+$(BUILD)/host/run-tests: $(HOST_LIB_OBJ) $(HOST_TEST_OBJ) $(HOST_SUPPORT_OBJ)
+	$(HOSTCC) $(HOST_SAN) $^ -lm -o $@
 
 host-test: $(BUILD)/host/run-tests
 	./$(BUILD)/host/run-tests

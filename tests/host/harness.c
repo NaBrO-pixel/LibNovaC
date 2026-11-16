@@ -40,6 +40,8 @@ int main(void)
     RUN(test_format);
     RUN(test_alloc);
     RUN(test_misc);
+    RUN(test_float);
+    RUN(test_scan);
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
