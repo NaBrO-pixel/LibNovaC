@@ -41,6 +41,11 @@ int novac_sys_unmap(void *addr, size_t size)
     return munmap(addr, size);
 }
 
+void novac_sys_write_stderr(const char *s, size_t n)
+{
+    if (write(2, s, n) < 0) {}
+}
+
 _Noreturn void novac_sys_exit(int status)
 {
     if (exit_jmp) { exit_status = status; longjmp(*exit_jmp, 1); }

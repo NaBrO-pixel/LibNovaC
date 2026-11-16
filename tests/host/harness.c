@@ -53,6 +53,8 @@ int main(void)
     RUN(test_scan);
     RUN(test_strext);
     RUN(test_math);
+    RUN(test_stdext);
+    RUN(test_net);
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

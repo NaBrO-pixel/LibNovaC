@@ -102,3 +102,9 @@ int atoi(const char *s)
     long v = atol(s);
     return v > INT_MAX ? INT_MAX : v < INT_MIN ? INT_MIN : (int)v;
 }
+
+#include <inttypes.h>
+intmax_t  strtoimax(const char *restrict s, char **restrict e, int b) { return conv_signed(s, e, b, INTMAX_MAX); }
+uintmax_t strtoumax(const char *restrict s, char **restrict e, int b) { return conv_unsigned(s, e, b, UINTMAX_MAX); }
+intmax_t  imaxabs(intmax_t j) { return j < 0 ? (intmax_t)(0 - (uintmax_t)j) : j; }
+imaxdiv_t imaxdiv(intmax_t n, intmax_t d) { imaxdiv_t r = { n / d, n % d }; return r; }

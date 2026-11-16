@@ -225,6 +225,78 @@ void *realloc(void *p, size_t n)
     return q;
 }
 
+/* Memory aligned to `align` (a power of two). Over-allocates, then gives
+ * the misaligned front back to the heap as a free block of its own, so
+ * free() needs nothing special. */
+static void *aligned_core(size_t align, size_t n)
+{
+    size_t need, front, size;
+    unsigned char *p;
+    uintptr_t a, target;
+    blk_t *b, *nb, *nx;
+
+    if (align <= ALIGN) return malloc(n);
+    need = block_for(n);
+    if (!need || n > SIZE_MAX - align - 2 * MIN_BLOCK) { errno = ENOMEM; return NULL; }
+    p = malloc(n + align + MIN_BLOCK);
+    if (!p) return NULL;
+    a = (uintptr_t)p;
+    if ((a & (align - 1)) == 0) return p;
+    target = (a + MIN_BLOCK + align - 1) & ~(uintptr_t)(align - 1);
+    front = (size_t)(target - a);
+    b = (blk_t *)(p - HDR);
+    size = bsize(b);
+    nb = (blk_t *)((unsigned char *)b + front);
+    bset(nb, size - front, 1);
+    nx = bnext(nb);
+    nx->h.prev_size = size - front;
+    bset(b, front, 0);                          /* the front, now free ... */
+    nb->h.prev_size = front;
+    if (b->h.prev_size) {                       /* ... merged with a free neighbour */
+        blk_t *pv = bprev(b);
+        if (!bused(pv)) {
+            fl_remove(pv);
+            bset(pv, bsize(pv) + front, 0);
+            nb->h.prev_size = bsize(pv);
+            b = pv;
+        }
+    }
+    fl_insert(b);
+    split_used(nb, need);
+    return payload(nb);
+}
+
+static int pow2(size_t a) { return a && !(a & (a - 1)); }
+
+int posix_memalign(void **out, size_t align, size_t n)
+{
+    void *p;
+    if (!pow2(align) || align % sizeof(void *)) return EINVAL;
+    p = aligned_core(align, n ? n : 1);
+    if (!p) return ENOMEM;
+    *out = p;
+    return 0;
+}
+
+void *aligned_alloc(size_t align, size_t n)
+{
+    if (!pow2(align)) { errno = EINVAL; return NULL; }
+    return aligned_core(align, n);
+}
+
+void *memalign(size_t align, size_t n) { return aligned_alloc(align, n); }
+
+size_t malloc_usable_size(void *p)
+{
+    return p ? bsize(checked_block(p)) - HDR : 0;
+}
+
+void *reallocarray(void *p, size_t nmemb, size_t size)
+{
+    if (size && nmemb > SIZE_MAX / size) { errno = ENOMEM; return NULL; }
+    return realloc(p, nmemb * size);
+}
+
 int novac__heap_check(void)
 {
     fnode_t *f;

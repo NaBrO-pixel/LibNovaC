@@ -14,4 +14,13 @@ double oracle_frexp(double x, int *e);
 double oracle_remquo(double x, double y, int *q);
 double oracle_scalbn(double x, int n);
 long   oracle_lround(double x);
+int    oracle_fnmatch(const char *p, const char *s, int flags);
+double oracle_drand48(void);
+long   oracle_lrand48(void);
+long   oracle_mrand48(void);
+void   oracle_srand48(long s);
+int    oracle_inet_pton(int af, const char *s, void *dst);
+const char *oracle_inet_ntop(int af, const void *src, char *dst, unsigned size);
+int    oracle_inet_aton(const char *s, unsigned *out);
+void   oracle_getopt_trace(int argc, char **argv, const char *opts, const void *longopts, char *out, size_t n);
 #endif

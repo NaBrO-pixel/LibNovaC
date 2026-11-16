@@ -76,21 +76,6 @@ unsigned int sleep(unsigned int seconds)
 
 _Noreturn void _exit(int status) { novac_sys_exit(status); }
 
-char *getenv(const char *name)
-{
-    size_t n;
-    char **e;
-    if (!environ || !name || !*name) return NULL;
-    for (n = 0; name[n]; n++)
-        if (name[n] == '=') return NULL;
-    for (e = environ; *e; e++) {
-        size_t i = 0;
-        while (i < n && (*e)[i] == name[i]) i++;
-        if (i == n && (*e)[n] == '=') return *e + n + 1;
-    }
-    return NULL;
-}
-
 pid_t waitpid(pid_t pid, int *status, int options)
 {
     return (pid_t)novac_ret(novac_syscall6(NOVAC_SYS_wait4, pid, (long)status, options, 0, 0, 0));
@@ -115,14 +100,14 @@ int execv(const char *path, char *const argv[])
  * and ENOTDIR move on to the next directory; any other error is
  * remembered - EACCES above all - and is what the call fails with if
  * nothing runs. */
-int execvp(const char *file, char *const argv[])
+int execvpe(const char *file, char *const argv[], char *const envp[])
 {
     const char *path, *p;
     char buf[PATH_MAX];
     int saw_eacces = 0, last = ENOENT;
 
     if (!file || !*file) { errno = ENOENT; return -1; }
-    if (strchr(file, '/')) return execv(file, argv);
+    if (strchr(file, '/')) return execve(file, argv, envp);
 
     path = getenv("PATH");
     if (!path) path = "/bin:/usr/bin";
@@ -136,7 +121,7 @@ int execvp(const char *file, char *const argv[])
             else { memcpy(buf, p, dlen); n = dlen; }
             buf[n++] = '/';
             memcpy(buf + n, file, flen + 1);
-            execve(buf, argv, environ);
+            execve(buf, argv, envp);
             if (errno == EACCES) saw_eacces = 1;
             else if (errno != ENOENT && errno != ENOTDIR) last = errno;
         }
@@ -147,92 +132,63 @@ int execvp(const char *file, char *const argv[])
     return -1;
 }
 
-/* --- the environment ----------------------------------------------------- *
- *
- * environ starts as the array the kernel left on the stack. The first
- * change copies it into memory of our own, which then grows as needed. A
- * string replaced or removed is not freed - it may be one of the
- * kernel's, or one a caller still holds - which is the usual trade. */
-static char **owned_env;
-static size_t owned_cap;
+int execvp(const char *file, char *const argv[]) { return execvpe(file, argv, environ); }
 
-static int env_name_ok(const char *name)
+/* The list forms gather their arguments into an array on the stack. */
+static size_t count_args(const char *arg, va_list ap)
 {
-    if (!name || !*name) return 0;
-    for (; *name; name++) if (*name == '=') return 0;
-    return 1;
+    size_t n = 1;
+    if (!arg) return 0;
+    while (va_arg(ap, const char *)) n++;
+    return n;
 }
 
-static long env_find(const char *name, size_t n)
-{
-    long i;
-    if (!environ) return -1;
-    for (i = 0; environ[i]; i++)
-        if (strncmp(environ[i], name, n) == 0 && environ[i][n] == '=') return i;
-    return -1;
-}
+#define GATHER(argv, arg, ap, n) do { size_t i_; argv[0] = (char *)(arg); \
+    for (i_ = 1; i_ <= (n); i_++) argv[i_] = va_arg(ap, char *); } while (0)
 
-static size_t env_count(void)
+int execl(const char *path, const char *arg, ...)
 {
-    size_t c = 0;
-    if (environ) while (environ[c]) c++;
-    return c;
-}
-
-static int env_own(size_t need)
-{
-    size_t count = env_count(), cap, i;
-    char **fresh;
-    if (environ == owned_env && need + 1 <= owned_cap) return 0;
-    cap = owned_cap ? owned_cap : 16;
-    while (cap < need + 1) cap *= 2;
-    fresh = malloc(cap * sizeof *fresh);
-    if (!fresh) { errno = ENOMEM; return -1; }
-    for (i = 0; i < count; i++) fresh[i] = environ[i];
-    fresh[count] = NULL;
-    if (environ == owned_env) free(owned_env);
-    owned_env = environ = fresh;
-    owned_cap = cap;
-    return 0;
-}
-
-int setenv(const char *name, const char *value, int overwrite)
-{
-    size_t n, v;
-    long at;
-    char *entry;
-
-    if (!env_name_ok(name)) { errno = EINVAL; return -1; }
-    if (!value) value = "";
-    n = strlen(name);
-    at = env_find(name, n);
-    if (at >= 0 && !overwrite) return 0;
-    v = strlen(value);
-    entry = malloc(n + 1 + v + 1);
-    if (!entry) { errno = ENOMEM; return -1; }
-    memcpy(entry, name, n);
-    entry[n] = '=';
-    memcpy(entry + n + 1, value, v + 1);
-    if (env_own(env_count() + (at < 0 ? 1 : 0)) < 0) { free(entry); return -1; }
-    if (at >= 0) {
-        environ[at] = entry;
-    } else {
-        size_t c = env_count();
-        environ[c] = entry;
-        environ[c + 1] = NULL;
-    }
-    return 0;
-}
-
-int unsetenv(const char *name)
-{
+    va_list ap;
     size_t n;
-    long at;
-    if (!env_name_ok(name)) { errno = EINVAL; return -1; }
-    n = strlen(name);
-    while ((at = env_find(name, n)) >= 0) {
-        if (env_own(env_count()) < 0) return -1;
-        for (; environ[at]; at++) environ[at] = environ[at + 1];
+    va_start(ap, arg); n = count_args(arg, ap); va_end(ap);
+    {
+        char *argv[n + 1];
+        va_start(ap, arg); GATHER(argv, arg, ap, n); va_end(ap);
+        argv[n] = NULL;
+        return execve(path, argv, environ);
     }
-    return 0;
 }
+
+int execlp(const char *file, const char *arg, ...)
+{
+    va_list ap;
+    size_t n;
+    va_start(ap, arg); n = count_args(arg, ap); va_end(ap);
+    {
+        char *argv[n + 1];
+        va_start(ap, arg); GATHER(argv, arg, ap, n); va_end(ap);
+        argv[n] = NULL;
+        return execvp(file, argv);
+    }
+}
+
+int execle(const char *path, const char *arg, ...)
+{
+    va_list ap;
+    size_t n;
+    char **envp;
+    va_start(ap, arg); n = count_args(arg, ap); va_end(ap);
+    {
+        char *argv[n + 1];
+        size_t i;
+        va_start(ap, arg);
+        argv[0] = (char *)arg;
+        for (i = 1; i < n; i++) argv[i] = va_arg(ap, char *);
+        if (n) (void)va_arg(ap, char *);       /* the terminating NULL */
+        envp = va_arg(ap, char **);
+        va_end(ap);
+        argv[n] = NULL;
+        return execve(path, argv, envp);
+    }
+}
+

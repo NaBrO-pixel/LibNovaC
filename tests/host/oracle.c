@@ -68,3 +68,40 @@ double oracle_frexp(double x, int *e) { return frexp(x, e); }
 double oracle_remquo(double x, double y, int *q) { return remquo(x, y, q); }
 double oracle_scalbn(double x, int n) { return scalbn(x, n); }
 long oracle_lround(double x) { return lround(x); }
+
+#include <fnmatch.h>
+int oracle_fnmatch(const char *p, const char *s, int flags)
+{
+    /* libNovaC's flag values are glibc's except FNM_LEADING_DIR/CASEFOLD */
+    int f = 0;
+    if (flags & 1) f |= FNM_NOESCAPE;
+    if (flags & 2) f |= FNM_PATHNAME;
+    if (flags & 4) f |= FNM_PERIOD;
+    if (flags & 0x10) f |= FNM_CASEFOLD;
+    return fnmatch(p, s, f) == 0 ? 0 : 1;
+}
+double oracle_drand48(void) { return drand48(); }
+long oracle_lrand48(void) { return lrand48(); }
+long oracle_mrand48(void) { return mrand48(); }
+void oracle_srand48(long s) { srand48(s); }
+
+#include <arpa/inet.h>
+#include <getopt.h>
+int oracle_inet_pton(int af, const char *s, void *dst) { return inet_pton(af == 10 ? AF_INET6 : af, s, dst); }
+const char *oracle_inet_ntop(int af, const void *src, char *dst, unsigned size)
+{ return inet_ntop(af == 10 ? AF_INET6 : af, src, dst, size); }
+int oracle_inet_aton(const char *s, unsigned *out) { struct in_addr a; int r = inet_aton(s, &a); *out = a.s_addr; return r; }
+
+/* Runs glibc's getopt_long over argv (modified in place, as getopt does)
+ * and writes a trace: each result and optarg, then the final optind. */
+void oracle_getopt_trace(int argc, char **argv, const char *opts, const void *longopts, char *out, size_t n)
+{
+    int c, li, len = 0;
+    optind = 0;
+    opterr = 0;
+    while ((c = getopt_long(argc, argv, opts, (const struct option *)longopts, &li)) != -1) {
+        len += snprintf(out + len, n - (size_t)len, "%d[%s]", c, optarg ? optarg : "-");
+        if (len > (int)n - 64) break;
+    }
+    snprintf(out + len, n - (size_t)len, "|%d", optind);
+}

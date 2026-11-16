@@ -23,9 +23,9 @@ BUILD     ?= build
 OUT       ?= $(BUILD)/target/novac_target_test.elf
 
 PORTABLE_SRC := $(wildcard src/string/*.c src/ctype/*.c src/errno/*.c src/assert/*.c src/stdlib/*.c src/fp/*.c src/math/*.c) \
-                src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c
-SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/unistd/unistd.c src/time/time.c src/sys/novaris/sys.c \
-                src/signal/signal.c
+                src/stdio/format.c src/stdio/snprintf.c src/stdio/scan.c src/net/inet.c src/unistd/getopt.c
+SYSTEM_SRC   := src/dirent/dirent.c src/stdio/file.c src/unistd/unistd.c src/unistd/posix.c src/time/time.c \
+                src/sys/novaris/sys.c src/signal/signal.c src/net/socket.c
 CRT_SRC      := src/arch/x86_64/start.c
 LIB_SRC      := $(PORTABLE_SRC) $(SYSTEM_SRC)
 
